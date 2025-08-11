@@ -5,7 +5,7 @@ import polars as pl
 from dash import Dash, Input, Output, State, callback, dcc, html
 from plotly_resampler import FigureResampler, register_plotly_resampler
 
-# register_plotly_resampler(mode="auto")
+register_plotly_resampler(mode="auto", default_n_shown_samples=10_000)
 
 
 def make_select_modal(choices):
@@ -53,7 +53,8 @@ def create_graph(df: pl.DataFrame):
         Output("graph", "figure"),
         [Input(f"select-dropdown-{i}", "value") for i in range(4)],
     )
-    def update_graph(*subplots):
+    def update_graph_selection(*subplots):
+        # Only keep subplots with selections (not empty)
         subplots = [subplot for subplot in subplots if subplot]
         plot_count = len(subplots)
 
@@ -64,18 +65,22 @@ def create_graph(df: pl.DataFrame):
             rows=plot_count, cols=1, shared_xaxes=True, vertical_spacing=0.02
         )
         fig.update_layout(margin={"l": 1, "r": 1, "t": 1, "b": 1})
+        fig = FigureResampler(fig)
 
         for row, subplot in enumerate(subplots, start=1):
             for col in subplot:
-                trace = go.Scatter(x=df["time"], y=df[col], mode="markers", name=col)
-                fig.add_trace(trace, row=row, col=1)
+                x = df["time"]
+                y = df[col]
+                trace = go.Scattergl(mode="markers", name=col, showlegend=True)
+                fig.add_trace(trace, row=row, col=1, hf_x=x, hf_y=y)
         return fig
 
     return html.Div(graph, style={"height": "85vh"})
 
 
 def main() -> None:
-    df = pl.read_parquet("data/artificial.parquet").with_row_index()
+    df = pl.read_parquet("data/big.parquet").with_row_index()
+    df = df.to_pandas()
 
     app = Dash(name=__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
