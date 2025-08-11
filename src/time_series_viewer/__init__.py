@@ -3,6 +3,9 @@ import plotly.graph_objects as go
 import plotly.subplots as ps
 import polars as pl
 from dash import Dash, Input, Output, State, callback, dcc, html
+from plotly_resampler import FigureResampler, register_plotly_resampler
+
+# register_plotly_resampler(mode="auto")
 
 
 def make_select_modal(choices):
