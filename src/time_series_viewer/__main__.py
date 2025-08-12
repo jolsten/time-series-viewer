@@ -18,6 +18,7 @@ from dash_extensions.enrich import DashProxy, Serverside, ServersideOutputTransf
 from plotly_resampler import FigureResampler
 
 # --------------------------------------Globals ---------------------------------------
+
 SELECT_MODAL = "select-modal"
 SELECT_MODAL_BODY = "select-modal-body"
 SELECT_MODAL_OPEN = "select-modal-open"
