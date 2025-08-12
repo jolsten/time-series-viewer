@@ -10,14 +10,16 @@ requires-python = ">=3.13"
 dependencies = [
     "dash>=3.2.0",
     "dash-bootstrap-components>=2.0.3",
+    "dash-extensions>=2.0.4",
     "pandas>=2.3.1",
-    "plotly>=6.2.0",
+    "plotly<6.0.0",
+    "plotly-resampler>=0.10.0",
     "polars>=1.32.2",
     "pyarrow>=21.0.0",
 ]
 
 [project.scripts]
-tsv = "time_series_viewer:main"
+# tsv = "time_series_viewer"
 
 [build-system]
 requires = ["hatchling"]

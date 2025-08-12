@@ -17,18 +17,24 @@ def main():
     df = df.with_row_index()
     df = df.with_columns(
         [
-            (pl.col("index") / 5000).sin().alias("sin"),
-            (pl.col("index") / 5000).cos().alias("cos"),
+            (pl.col("index") * 2 * np.pi / 86400).sin().alias("sin"),
+            (pl.col("index") * 2 * np.pi / 86400).cos().alias("cos"),
         ]
     )
     df = df.with_columns(
         [
+            (pl.col("sin") + pl.lit((np.random.rand(df.height) - 0.5) * 0.1)).alias(
+                "noisy-sin"
+            ),
+            (pl.col("cos") + pl.lit((np.random.rand(df.height) - 0.5) * 0.1)).alias(
+                "noisy-cos"
+            ),
             pl.col("sin")
             .map_elements(square_wave, return_dtype=pl.Int8)
-            .alias("square1"),
+            .alias("sin_square"),
             pl.col("cos")
             .map_elements(square_wave, return_dtype=pl.Int8)
-            .alias("square2"),
+            .alias("cos_square"),
         ]
     )
     print(df.head(60))
