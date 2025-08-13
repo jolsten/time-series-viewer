@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
-# tsv = "time_series_viewer"
+tsv = "time_series_viewer.app:main"
 
 [build-system]
 requires = ["hatchling"]

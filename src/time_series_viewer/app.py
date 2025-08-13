@@ -16,6 +16,8 @@ SELECT_MODAL_OPEN = "select-modal-open"
 SELECT_MODAL_CANX = "select-modal-cancel"
 SELECT_MODAL_APPLY = "select-modal-apply"
 SELECT_FILE = "select-file"
+SELECT_MAX_SAMPLES = "select-max-samples"
+SELECT_DROPDOWN = "select-dropdown"
 GRAPH = "graph"
 
 MAX_SUBPLOTS = 4
@@ -40,17 +42,37 @@ nav = dbc.Navbar(
     dark=True,
 )
 
-modal = dbc.Modal(
+select_modal = dbc.Modal(
     [
         dbc.ModalHeader(dbc.ModalTitle("Selection"), close_button=True),
         dbc.ModalBody(
             [
-                dcc.Dropdown(["data/big.parquet"], id=SELECT_FILE),
+                html.Div(
+                    [
+                        html.Label("Max Samples"),
+                        dcc.Dropdown(
+                            [1_000, 10_000, 50_000],
+                            10_000,
+                            id=SELECT_MAX_SAMPLES,
+                            clearable=False,
+                        ),
+                    ],
+                    className="mb-3",
+                ),
+                html.Div(
+                    [
+                        html.Label("Data File"),
+                        dcc.Dropdown(["data/big.parquet"], id=SELECT_FILE),
+                    ],
+                    className="mb-3",
+                ),
                 *[
                     html.Div(
                         [
                             html.Label(f"Subplot {i + 1}"),
-                            dcc.Dropdown([], [], id=f"select-dropdown-{i}", multi=True),
+                            dcc.Dropdown(
+                                [], [], id=f"{SELECT_DROPDOWN}-{i}", multi=True
+                            ),
                         ],
                         className="mb-3",
                     )
@@ -62,7 +84,7 @@ modal = dbc.Modal(
         dbc.ModalFooter(
             [
                 dbc.Button("Apply", id=SELECT_MODAL_APPLY, n_clicks=0),
-                dbc.Button("Close", id=SELECT_MODAL_CANX),
+                dbc.Button("Cancel", id=SELECT_MODAL_CANX, className="btn btn-danger"),
             ]
         ),
     ],
@@ -75,11 +97,11 @@ modal = dbc.Modal(
 app.layout = html.Div(
     [
         nav,
-        modal,
+        select_modal,
         # The graph object - which we will empower with plotly-resampler
         dcc.Graph(id=GRAPH, responsive=True, style={"height": "85vh"}),
         # Note: we also add a dcc.Store component, which will be used to link the
-        #       server side cached FigureResampler object
+        # server side cached FigureResampler object
         dcc.Loading(dcc.Store(id="store")),
     ]
 )
@@ -92,27 +114,29 @@ app.layout = html.Div(
     inputs=dict(
         n_clicks=Input(SELECT_MODAL_APPLY, "n_clicks"),
         file=State(SELECT_FILE, "value"),
-        subplots=[State(f"select-dropdown-{i}", "value") for i in range(MAX_SUBPLOTS)],
+        max_samples=State(SELECT_MAX_SAMPLES, "value"),
+        subplots=[
+            State(f"{SELECT_DROPDOWN}-{i}", "value") for i in range(MAX_SUBPLOTS)
+        ],
     ),
     prevent_initial_call=True,
 )
-def plot_graph(n_clicks, file, subplots):
+def plot_graph(n_clicks, file, max_samples: int, subplots):
+    max_samples = int(max_samples)
     ctx = callback_context
     if not (len(ctx.triggered) and SELECT_MODAL_APPLY in ctx.triggered[0]["prop_id"]):
         # If the "Apply" button was not the trigger, provide no update
         return no_update
 
-    fig: FigureResampler = FigureResampler(
-        go.Figure()  # , default_downsampler=MinMaxLTTB(parallel=True)
-    )
+    fig: FigureResampler = FigureResampler(go.Figure())
     fig.update_layout(margin=FIGURE_MARGIN)
 
     subplots = [subplot for subplot in subplots if subplot]
     plot_count = len(subplots)
 
     if plot_count == 0:
-        fig = fig.replace(go.Figure())
-        fig.update_layout(margin=FIGURE_MARGIN)
+        fig = fig.replace(go.Figure(layout={"margin": FIGURE_MARGIN}))
+        # fig.update_layout(margin=FIGURE_MARGIN)
         return fig, Serverside(fig)
 
     # Figure construction logic
@@ -129,7 +153,9 @@ def plot_graph(n_clicks, file, subplots):
         for col in subplot:
             y = df.select(col).collect().to_numpy().transpose()[0]
             trace = go.Scattergl(mode="markers", name=col, showlegend=True)
-            fig.add_trace(trace, row=row, col=1, hf_x=x, hf_y=y, max_n_samples=10_000)
+            fig.add_trace(
+                trace, row=row, col=1, hf_x=x, hf_y=y, max_n_samples=max_samples
+            )
 
     return fig, Serverside(fig)
 
@@ -154,10 +180,11 @@ def update_fig(relayoutdata: dict, fig: FigureResampler):
     [
         Input(SELECT_MODAL_OPEN, "n_clicks"),
         Input(SELECT_MODAL_CANX, "n_clicks"),
+        Input(SELECT_MODAL_APPLY, "n_clicks"),
     ],
     [State(SELECT_MODAL, "is_open")],
 )
-def toggle_modal(n_open, n_cancel, is_open):
+def toggle_modal(n_open, n_cancel, n_apply, is_open):
     if n_open:
         return not is_open
     return is_open
@@ -165,7 +192,7 @@ def toggle_modal(n_open, n_cancel, is_open):
 
 @app.callback(
     [
-        *[Output(f"select-dropdown-{i}", "options") for i in range(MAX_SUBPLOTS)],
+        *[Output(f"{SELECT_DROPDOWN}-{i}", "options") for i in range(MAX_SUBPLOTS)],
     ],
     Input(SELECT_FILE, "value"),
 )
